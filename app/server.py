@@ -45,6 +45,17 @@ from .braille_display import (
     _DOTPAD_GRAPHIC_CELLS,
 )
 from .cad_comparison_lib import CADComparisonRenderer
+
+try:
+    from .cross_section_algo import load_voxel_grids as _load_voxel_grids
+    from .cross_section_algo import recommend_sections as _recommend_sections
+    _CROSS_SECTION_ALGO_AVAILABLE = True
+    _CROSS_SECTION_ALGO_ERROR: str | None = None
+except Exception as _algo_import_err:
+    _load_voxel_grids = None
+    _recommend_sections = None
+    _CROSS_SECTION_ALGO_AVAILABLE = False
+    _CROSS_SECTION_ALGO_ERROR = str(_algo_import_err)
 from src.converter.render_low_res import save_binary_array_as_vector_pdf
 
 try:
@@ -851,7 +862,7 @@ def home():
                 "/commands/stats": "GET - Command statistics",
                 "/models": "GET/POST - List or update active model index",
                 "/upload": "POST - Upload an STL or STEP model file",
-                "/upload": "POST - Upload an STL or STEP model file",
+                "/recommend_sections": "POST - Recommend cross-section planes for the current model",
                 "/get_data": "GET - Optional cube/slider state",
                 "/render/dotpad-hex": "POST - Get render as DotPad hex string for Web SDK",
                 "/viewer": "GET - Serve the HTML viewer (required for DotPad Web SDK)",
@@ -1462,6 +1473,62 @@ def serve_static_css(filename):
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
+
+
+_ALGO_AXIS_TO_VIEW = {"z": "x-", "y": "y-", "x": "z+"}
+_ALGO_AXIS_TO_DIM  = {"z": 0, "y": 1, "x": 2}
+_FEATURE_PRIORITY  = {"tunnel": 10, "cavity": 8, "protrusion": 5, "crater": 4, "blob": 1}
+
+
+def _section_label(covers: list[str]) -> str:
+    kinds = sorted(
+        set(fid.split("_")[0] for fid in covers),
+        key=lambda k: -_FEATURE_PRIORITY.get(k, 0),
+    )
+    return " + ".join(kinds) if kinds else "section"
+
+
+@app.route("/recommend_sections", methods=["POST"])
+def recommend_sections_view():
+    """Analyze a model and return recommended cross-section planes.
+
+    POST body (JSON): { "current_model": <int> }
+    Response: { "status", "model_index", "sections": [{view, depth, label, covers}], "analysis_ms" }
+    """
+    if not _CROSS_SECTION_ALGO_AVAILABLE:
+        return jsonify({"status": "error", "message": _CROSS_SECTION_ALGO_ERROR}), 503
+
+    try:
+        _refresh_model_list_if_stale()
+        data = request.get_json(silent=True) or {}
+        model_index = _normalize_model_index(data.get("current_model"))
+        model_path = AVAILABLE_MODELS[model_index]
+
+        t0 = time.perf_counter()
+        filled_grid, raw_grid = _load_voxel_grids(str(model_path))
+        sections, _ = _recommend_sections(filled_grid, raw_grid=raw_grid)
+        elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+
+        result = []
+        for s in sections:
+            N = filled_grid.shape[_ALGO_AXIS_TO_DIM[s.axis]]
+            depth = round(s.coordinate / (N - 1) * 100) if N > 1 else 0
+            result.append({
+                "view": _ALGO_AXIS_TO_VIEW[s.axis],
+                "depth": depth,
+                "label": _section_label(s.covers),
+                "covers": s.covers,
+            })
+
+        return jsonify({
+            "status": "success",
+            "model_index": model_index,
+            "sections": result,
+            "analysis_ms": elapsed_ms,
+        }), 200
+    except Exception as error:
+        _log(f"Error recommending sections: {error}", force=True)
+        return jsonify({"status": "error", "message": str(error)}), 400
 
 
 def main() -> int:
