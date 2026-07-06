@@ -25,7 +25,7 @@ jobs:
       - name: Install test and lint tooling
         shell: bash -l {0}
         run: |
-          micromamba run -n cad-a11y python -m pip install pytest ruff
+          micromamba run -n cad-a11y python -m pip install -r requirements-dev.txt
 
       - name: Lint (errors only)
         shell: bash -l {0}

@@ -5,7 +5,6 @@ Internal imports converted to relative for use as a package inside CAD A11y.
 """
 
 from dataclasses import dataclass
-from collections import defaultdict
 
 import numpy as np
 from scipy import ndimage
