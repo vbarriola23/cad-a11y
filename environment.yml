@@ -6,5 +6,6 @@ dependencies:
   - pythonocc-core
   - pip
   - numpy
+  - skan
   - matplotlib
   - pillow
