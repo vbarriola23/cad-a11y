@@ -547,6 +547,12 @@ const exportSliceSvgBtn = document.getElementById('export-slice-svg-btn');
 const highFidelityPreviewImg = document.getElementById('high-fidelity-preview-img');
 const highFidelityPreviewMeta = document.getElementById('high-fidelity-preview-meta');
 const debugPipelineToggleBtn = document.getElementById('debug-pipeline-toggle-btn');
+const analyzeBtn = document.getElementById('analyze-btn');
+const sectionsStatus = document.getElementById('sections-status');
+const sectionsList = document.getElementById('sections-list');
+const featuresSection = document.getElementById('features-section');
+const featuresList = document.getElementById('features-list');
+const featuresCount = document.getElementById('features-count');
 const debugPipelineContent = document.getElementById('debug-pipeline-content');
 const debugPipelineSummary = document.getElementById('debug-pipeline-summary');
 const debugStageList = document.getElementById('debug-stage-list');
@@ -1922,6 +1928,137 @@ if (resetPositionBtn) {
 exportSliceSvgBtn.addEventListener('click', function() {
     exportCurrentSliceAsPng();
 });
+
+function _viewToVerbose(view) {
+    return String(view).replace('+', ' plus').replace('-', ' minus');
+}
+
+function populateSectionsList(sections) {
+    if (!sectionsList) return;
+    sectionsList.innerHTML = '';
+    sections.forEach(function(section) {
+        const verboseView = _viewToVerbose(section.view);
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = section.view + ' · ' + section.depth + '%';
+        btn.setAttribute('aria-label', 'Apply section: view ' + verboseView + ', depth ' + section.depth + ' percent');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.addEventListener('click', function() {
+            sectionsList.querySelectorAll('button').forEach(function(b) {
+                b.setAttribute('aria-pressed', 'false');
+            });
+            btn.setAttribute('aria-pressed', 'true');
+            pendingInputSource = 'ui';
+            updateView(section.view);
+            updateSliceDepth(section.depth);
+        });
+        li.appendChild(btn);
+        sectionsList.appendChild(li);
+    });
+}
+
+function populateFeaturesList(features) {
+    if (!featuresList) return;
+    featuresList.innerHTML = '';
+    if (!features || features.length === 0) {
+        if (featuresSection) featuresSection.hidden = true;
+        return;
+    }
+    features.forEach(function(f) {
+        const c = f.centroid;
+        const mn = f.bbox_min;
+        const mx = f.bbox_max;
+
+        // Full prose label for screen readers — children are aria-hidden to avoid duplication.
+        const ariaLabel = [
+            f.kind + ' ' + f.id,
+            'centroid at x ' + c.x + ' percent, y ' + c.y + ' percent, z ' + c.z + ' percent',
+            'bounds x ' + mn.x + ' to ' + mx.x + ' percent' +
+                ', y ' + mn.y + ' to ' + mx.y + ' percent' +
+                ', z ' + mn.z + ' to ' + mx.z + ' percent',
+            f.voxel_count.toLocaleString() + ' voxels',
+        ].join('; ');
+
+        const li = document.createElement('li');
+        li.className = 'feature-item';
+        li.setAttribute('aria-label', ariaLabel);
+
+        const header = document.createElement('div');
+        header.className = 'feature-header';
+        header.setAttribute('aria-hidden', 'true');
+        const kindSpan = document.createElement('span');
+        kindSpan.className = 'feature-kind';
+        kindSpan.textContent = f.kind;
+        const idSpan = document.createElement('span');
+        idSpan.className = 'feature-id';
+        idSpan.textContent = ' ' + f.id;
+        header.appendChild(kindSpan);
+        header.appendChild(idSpan);
+
+        const dl = document.createElement('dl');
+        dl.className = 'feature-details';
+        dl.setAttribute('aria-hidden', 'true');
+
+        function addRow(term, value) {
+            const dt = document.createElement('dt');
+            dt.textContent = term;
+            const dd = document.createElement('dd');
+            dd.textContent = value;
+            dl.appendChild(dt);
+            dl.appendChild(dd);
+        }
+
+        addRow('Centroid', 'x ' + c.x + '%, y ' + c.y + '%, z ' + c.z + '%');
+        addRow('Bounds', 'x ' + mn.x + '–' + mx.x + '%, y ' + mn.y + '–' + mx.y + '%, z ' + mn.z + '–' + mx.z + '%');
+        addRow('Voxels', f.voxel_count.toLocaleString());
+
+        li.appendChild(header);
+        li.appendChild(dl);
+        featuresList.appendChild(li);
+    });
+
+    const n = features.length;
+    if (featuresCount) {
+        featuresCount.textContent = n + ' feature' + (n === 1 ? '' : 's') + ' detected.';
+    }
+    if (featuresSection) featuresSection.hidden = false;
+}
+
+if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', function() {
+        analyzeBtn.disabled = true;
+        sectionsStatus.textContent = 'Analyzing…';
+        fetch(`${SERVER_URL}/recommend_sections`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current_model: currentModel }),
+            mode: 'cors',
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.status === 'error') {
+                const msg = 'Section analysis unavailable: ' + (data.message || 'unknown error');
+                sectionsStatus.textContent = msg;
+                announce(msg);
+            } else {
+                sectionsStatus.textContent = '';
+                populateSectionsList(data.sections || []);
+                populateFeaturesList(data.features || []);
+                const n = (data.sections || []).length;
+                announce(n + ' section' + (n === 1 ? '' : 's') + ' found.');
+            }
+        })
+        .catch(function(err) {
+            sectionsStatus.textContent = 'Analysis failed.';
+            announce('Section analysis failed.');
+            console.warn('/recommend_sections error:', err);
+        })
+        .finally(function() {
+            analyzeBtn.disabled = false;
+        });
+    });
+}
 
 if (debugPipelineToggleBtn) {
     debugPipelineToggleBtn.addEventListener('click', function() {

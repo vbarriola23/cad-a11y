@@ -231,6 +231,30 @@
             </section>
 
             <!-- ============================================================
+                 1e. RECOMMENDED SECTIONS
+                 ============================================================ -->
+            <section class="section" aria-labelledby="sections-heading">
+                <h2 id="sections-heading">Recommended Sections</h2>
+                <button type="button" id="analyze-btn" aria-describedby="analyze-help">
+                    Analyze Model
+                </button>
+                <div id="analyze-help" class="help-text sr-only">
+                    Scans the current model and recommends cross-section planes.
+                </div>
+                <div id="sections-status" class="help-text" aria-live="assertive" aria-atomic="true"></div>
+                <ul id="sections-list" aria-label="Recommended cross-sections"></ul>
+            </section>
+
+            <!-- ============================================================
+                 1f. DETECTED FEATURES
+                 ============================================================ -->
+            <section class="section" aria-labelledby="features-heading" id="features-section" hidden>
+                <h2 id="features-heading">Detected Features</h2>
+                <p class="help-text" id="features-count"></p>
+                <ul id="features-list" aria-label="Detected features"></ul>
+            </section>
+
+            <!-- ============================================================
                  2. DISPLAY OPTIONS — changed occasionally
                  ============================================================ -->
             <section class="section" aria-labelledby="display-opts-heading">

@@ -369,6 +369,75 @@ fieldset label {
     font-size: 0.9em;
 }
 
+#sections-list {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+}
+
+#sections-list li {
+    margin-bottom: 6px;
+}
+
+#sections-list button[aria-pressed="true"] {
+    background-color: #1a5e91;
+    color: #fff;
+    border-color: #1a5e91;
+}
+
+/* Feature list */
+#features-list {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+}
+
+.feature-item {
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: 1px solid #d9e2ec;
+    border-left: 4px solid #1e6fa4;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.feature-header {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #2c3e50;
+}
+
+.feature-kind {
+    text-transform: capitalize;
+    color: #1a5e91;
+}
+
+/* #596871 on #fff = 5.0:1 (AA pass) */
+.feature-id {
+    color: #596871;
+    font-size: 0.9em;
+    font-family: 'Courier New', monospace;
+}
+
+.feature-details {
+    margin: 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 12px;
+    font-size: 0.88em;
+}
+
+.feature-details dt {
+    color: #596871;
+    font-weight: 500;
+}
+
+.feature-details dd {
+    margin: 0;
+    color: #2c3e50;
+    font-variant-numeric: tabular-nums;
+}
+
 #announcement-history {
     list-style: none;
     margin: 12px 0 0;
