@@ -1488,12 +1488,19 @@ def _section_label(covers: list[str]) -> str:
     return " + ".join(kinds) if kinds else "section"
 
 
+def _vox_to_pct(coord, n: int) -> int:
+    return round(float(coord) / (n - 1) * 100) if n > 1 else 0
+
+
 @app.route("/recommend_sections", methods=["POST"])
 def recommend_sections_view():
     """Analyze a model and return recommended cross-section planes.
 
     POST body (JSON): { "current_model": <int> }
-    Response: { "status", "model_index", "sections": [{view, depth, label, covers}], "analysis_ms" }
+    Response: { "status", "model_index", "sections": [{view, depth, label, covers}],
+                "features": [{id, kind, voxel_count, centroid, bbox_min, bbox_max}],
+                "analysis_ms" }
+    Centroid and bbox coords are expressed as depth% per axis (0-100), not raw voxels.
     """
     if not _CROSS_SECTION_ALGO_AVAILABLE:
         return jsonify({"status": "error", "message": _CROSS_SECTION_ALGO_ERROR}), 503
@@ -1506,7 +1513,7 @@ def recommend_sections_view():
 
         t0 = time.perf_counter()
         filled_grid, raw_grid = _load_voxel_grids(str(model_path))
-        sections, _ = _recommend_sections(filled_grid, raw_grid=raw_grid)
+        sections, features = _recommend_sections(filled_grid, raw_grid=raw_grid)
         elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 1)
 
         result = []
@@ -1520,10 +1527,33 @@ def recommend_sections_view():
                 "covers": s.covers,
             })
 
+        # Features referenced by at least one section, sorted by priority then id.
+        nz, ny, nx = filled_grid.shape
+        covered_ids = {fid for s in sections for fid in s.covers}
+        feature_lookup = {f.id: f for f in features}
+        features_out = []
+        for fid in sorted(
+            covered_ids,
+            key=lambda i: (-_FEATURE_PRIORITY.get(i.split("_")[0], 0), i),
+        ):
+            f = feature_lookup[fid]
+            z_c, y_c, x_c = f.centroid
+            z0, y0, x0 = f.bbox_min
+            z1, y1, x1 = f.bbox_max
+            features_out.append({
+                "id": f.id,
+                "kind": f.kind,
+                "voxel_count": f.voxel_count,
+                "centroid":  {"z": _vox_to_pct(z_c, nz), "y": _vox_to_pct(y_c, ny), "x": _vox_to_pct(x_c, nx)},
+                "bbox_min":  {"z": _vox_to_pct(z0, nz),  "y": _vox_to_pct(y0, ny),  "x": _vox_to_pct(x0, nx)},
+                "bbox_max":  {"z": _vox_to_pct(z1, nz),  "y": _vox_to_pct(y1, ny),  "x": _vox_to_pct(x1, nx)},
+            })
+
         return jsonify({
             "status": "success",
             "model_index": model_index,
             "sections": result,
+            "features": features_out,
             "analysis_ms": elapsed_ms,
         }), 200
     except Exception as error:

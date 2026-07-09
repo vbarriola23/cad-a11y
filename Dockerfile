@@ -34,6 +34,7 @@ RUN pip install --no-cache-dir polyscope || true
 COPY app/ ./app/
 COPY src/ ./src/
 COPY static/ ./static/
+COPY tests/ ./tests/
 COPY accessible-3d-viewer.html ./
 COPY src/models/brep/ ./data/models/
 
