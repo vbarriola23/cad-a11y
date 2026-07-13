@@ -16,6 +16,9 @@ data/renders/*
 !data/renders/.gitkeep
 data/logs/*
 !data/logs/.gitkeep
+
+# Uploaded models (UUID-suffixed names from the app's upload feature)
+data/models/*_????????.stl
 renders/
 study_logs/
 

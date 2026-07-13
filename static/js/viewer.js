@@ -339,6 +339,8 @@ let currentOutputDevice = 'monarch_hid';
 const renderModes = ['Shaded', 'Outline', 'Cut', 'Crease'];
 const representationModes = ['single', 'side-by-side', 'slice-graph-difference', 'slice-graph-column-count'];
 let currentModel = "none";
+let _recommendedSections = [];
+let _currentSectionIndex = -1;
 let composeScrollbar = true;
 let composeSliceGraph = false;
 let showViewInfoBox = false;
@@ -1935,6 +1937,8 @@ function _viewToVerbose(view) {
 
 function populateSectionsList(sections) {
     if (!sectionsList) return;
+    _recommendedSections = sections;
+    _currentSectionIndex = -1;
     sectionsList.innerHTML = '';
     sections.forEach(function(section) {
         const verboseView = _viewToVerbose(section.view);
@@ -2115,7 +2119,8 @@ document.addEventListener('keydown', function(e) {
         'u', 'i', 'o', 'j', 'k', 'l',
         '4', '5', '6', '7', '8', '9', '0', '-', '=',
         'r', 't', 'g', 'v', 'z',
-        'w', 'a', 's', 'd', '[', ']', 'h', 'p', '.', 'escape'
+        'w', 'a', 's', 'd', '[', ']', 'h', 'p', '.', 'escape',
+        'n',
     ]);
 
     if (!supportedShortcuts.has(normalizedKey)) {
@@ -2414,6 +2419,29 @@ document.addEventListener('keydown', function(e) {
         case 'p':
             announce('Printing current render');
             print_view();
+            break;
+
+        case 'n':
+            e.preventDefault();
+            {
+                if (!sectionsList) break;
+                const sectionBtns = Array.from(sectionsList.querySelectorAll('button'));
+                if (sectionBtns.length === 0 || _recommendedSections.length === 0) {
+                    announce('No recommended sections. Press Analyze to generate.');
+                    break;
+                }
+                _currentSectionIndex = (_currentSectionIndex + 1) % sectionBtns.length;
+                sectionBtns.forEach(function(b) { b.setAttribute('aria-pressed', 'false'); });
+                sectionBtns[_currentSectionIndex].setAttribute('aria-pressed', 'true');
+                const section = _recommendedSections[_currentSectionIndex];
+                // Suppress internal announces — we emit one combined phrase below.
+                updateView(section.view, false);
+                updateSliceDepth(section.depth, false);
+                announce(
+                    'Section ' + (_currentSectionIndex + 1) + ' of ' + sectionBtns.length +
+                    ', ' + section.label
+                );
+            }
             break;
 
         case 'z':
